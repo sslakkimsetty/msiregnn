@@ -1,6 +1,4 @@
-"""
-Evaluates MI between two images that is differentiable.
-"""
+"""Evaluates MI between two images that is differentiable."""
 
 import numpy as np
 import tensorflow as tf
@@ -23,66 +21,62 @@ def sample_coords(
 
     :return: Tuple containing two arrays of random y and x coordinates.
     """
-    H, W = dims  # dims are (H,W)
+    height, width = dims  # dims are (H,W)
 
     rng = Generator(PCG64())
-    ix = rng.choice(W, size=n)
-    iy = rng.choice(H, size=n)
-
+    ix = rng.choice(width, size=n)
+    iy = rng.choice(height, size=n)
     return (iy, ix)
 
 
-def Gphi(z, phi, _type="marginal"):  # noqa: N802
+def Gphi( # noqa
+        z: tf.Tensor,
+        phi: tf.Tensor,
+        _type: str = "marginal"
+) -> tf.Tensor:
     """
     Evaluate the Gaussian density function for given inputs.
 
     This function calculates the Gaussian density function based on the provided inputs.
 
     :param z: Input data tensor.
-    :type z: tf.Tensor
-
     :param phi: Covariance matrix or variance, depending on the type.
-    :type phi: tf.Tensor
-
     :param _type: Type of the Gaussian distribution. Options are "marginal" or "joint".
-    :type _type: str, optional
 
     :return: Tensor containing the evaluated Gaussian density function.
-    :rtype: tf.Tensor
     """
     # if type is "joint", z is expected in nx2 shape
-    # n = len(z)
+    # n isequalto len(z)
     if _type == "marginal":
         phi_det = phi
-        C = (-1 / 2) * ((z ** 2) / phi)
+        c = (-1 / 2) * ((z ** 2) / phi)
         k = 1
     else:
         phi_det = tf.linalg.det(phi)
-        _A = tf.linalg.inv(phi)
-        _B = tf.matmul(z, _A)
-        _D = _B * z
-        C = (-1 / 2) * (tf.reduce_sum(_D, axis=1))
+        _a = tf.linalg.inv(phi)
+        _b = tf.matmul(z, _a)
+        _d = _b * z
+        c = (-1 / 2) * (tf.reduce_sum(_d, axis=1))
         k = 2
 
-    A = (2 * np.pi) ** (-k / 2)
-    B = phi_det ** (-1 / 2)
-    return A * B * tf.exp(C)
+    a = (2 * np.pi) ** (-k / 2)
+    b = phi_det ** (-1 / 2)
+    return a * b * tf.exp(c)
 
 
-def construct_z(img, c):
+def construct_z(
+        img: tf.Tensor,
+        c: tuple[int, int, int, int]
+) -> tf.Tensor:
     """
     Construct the difference vector z based on image and coordinates.
 
     This function constructs the difference vector z using the image and provided coordinates.
 
     :param img: Input image tensor.
-    :type img: tf.Tensor
-
     :param c: Coordinates for constructing the difference vector (cix, ciy, cjx, cjy).
-    :type c: tuple
 
     :return: Flattened difference vector z.
-    :rtype: tf.Tensor
     """
     cix, ciy, cjx, cjy = c
     n = len(cix)
@@ -98,26 +92,23 @@ def construct_z(img, c):
     return tf.reshape(z, (-1,))
 
 
-def _entropy(z, n, _type="marginal", phi=0.1):
+def _entropy(
+        z: tf.Tensor,
+        n: int,
+        _type: str = "marginal",
+        phi: float = 0.1
+) -> tf.Tensor:
     """
     Compute the entropy of the given vector z.
 
     This function computes the entropy of the given vector z using the Gphi function.
 
     :param z: Input vector for entropy computation.
-    :type z: tf.Tensor
-
     :param n: Number of elements in the vector z.
-    :type n: int
-
     :param _type: Type of entropy calculation ("marginal" or "joint").
-    :type _type: str, optional
-
     :param phi: Precision parameter for Gphi function.
-    :type phi: float, optional
 
     :return: Entropy value.
-    :rtype: tf.Tensor
     """
     g = Gphi(z, phi=phi, _type=_type)
     out = tf.reshape(g, (n, -1))
@@ -127,22 +118,26 @@ def _entropy(z, n, _type="marginal", phi=0.1):
     return out
 
 
-def _compute_scale(z):
+def _compute_scale(
+        z: np.ndarray
+) -> float:
     """
     Compute the scale (standard deviation) of the given vector z.
 
     This function computes the scale (standard deviation) of the given vector z.
 
     :param z: Input vector for scale computation.
-    :type z: np.ndarray
 
     :return: Scale (standard deviation) value.
-    :rtype: float
     """
     return np.sqrt(np.var(z))
 
 
-def mi(u, v, n=100):
+def mi(
+        u: tf.Tensor,
+        v: tf.Tensor,
+        n: int = 100
+) -> float:
     """
     Compute the mutual information between two images u and v using sampled coordinates.
 
@@ -150,19 +145,15 @@ def mi(u, v, n=100):
     sampled coordinates.
 
     :param u: First input image.
-    :type u: tf.Tensor
     :param v: Second input image.
-    :type v: tf.Tensor
     :param n: Number of sampled coordinates for mutual information calculation. Default is 100.
-    :type n: int
 
     :return: Mutual information value.
-    :rtype: float
     """
     u = tf.squeeze(u)
     v = tf.squeeze(v)
-    H, W = u.shape
-    dims = (H, W)
+    height, width = u.shape
+    dims = (height, width)
 
     # Sample coordinates for sample B
     ciy, cix = sample_coords(dims, n=n)
@@ -187,14 +178,10 @@ def mi(u, v, n=100):
     hu = _entropy(uz, n, phi=phi)
     hv = _entropy(vz, n, phi=phi)
 
-    # print("hu:", hu.numpy())
-    # print("hv:", hv.numpy())
-
     # Joint entropy
     uvz = tf.stack([uz, vz])
     uvz = tf.transpose(uvz)
     huv = _entropy(uvz, n, _type="joint", phi=tf.eye(2, 2) * phi)
-    # print("huv:", huv.numpy())
 
     _mi = hu + hv - huv
     return _mi

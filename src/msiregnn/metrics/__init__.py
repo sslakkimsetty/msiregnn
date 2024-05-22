@@ -1,6 +1,4 @@
-"""
-Provides loss metrics for coregistration.
-"""
+"""Provides loss metrics for coregistration."""
 
 
 from .mi import mi
