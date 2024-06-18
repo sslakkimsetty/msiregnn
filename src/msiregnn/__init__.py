@@ -2,3 +2,7 @@
 
 from .api import *  # noqa
 from .metrics import mi
+from .stn import (
+    SpatialTransformerBspline,
+    SpatialTransformerAffine
+)
