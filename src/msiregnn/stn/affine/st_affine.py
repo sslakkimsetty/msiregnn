@@ -1,44 +1,63 @@
-import tensorflow as tf
+"""Provides class definition and methods for SpatialTransformerBspline."""
+
 import numpy as np
+import tensorflow as tf
+
+__all__ = [
+    "SpatialTransformerAffine"
+]
 
 class SpatialTransformerAffine(tf.keras.layers.Layer):
     """
-    Spatial Transformer Affine layer for spatial transformations of input feature maps using affine transformations.
+    Spatial Transformer Affine layer for spatial transformations using affine function.
 
-    This layer applies spatial transformations on input feature maps based on affine transformation parameters.
-    It consists of a grid generator and a bilinear sampler for performing differentiable spatial transformations.
-
-    :Parameters:
-        - img_res (tuple): Resolution of the input images (H, W). Defaults to (100, 100) if not provided.
-        - out_dims (tuple): Output dimensions of the transformed images (H, W). Defaults to img_res if not provided.
-        - B (int): Batch size. Defaults to None.
-
-    :Attributes:
-        - H (int): Height of the input images.
-        - W (int): Width of the input images.
-        - out_H (int): Height of the output images.
-        - out_W (int): Width of the output images.
-        - base_grid (tf.Tensor): Base grid for the grid generator.
-
-    :Methods:
-        - _transformer(input_fmap, theta=None): Applies the spatial transformation on the input feature map.
-        - _bilinear_sampler(img, x, y): Bilinear sampler for sampling values from the input feature map.
-        - _pixel_intensity(img, x, y): Retrieves pixel intensities from the input feature map.
-        - call(input_fmap, theta=None, B=None): Applies the spatial transformer affine layer on the input feature map.
-
-    :Example usage:
-    ```python
-    st_affine_layer = SpatialTransformerAffine(img_res=(256, 256), out_dims=(128, 128), B=32)
-    input_feature_map = tf.random.normal(shape=(32, 256, 256, 3))
-    theta_params = tf.random.normal(shape=(32, 2, 3, 3))  # Example affine transformation parameters
-    transformed_output = st_affine_layer.call(input_feature_map, theta=theta_params, B=32)
-    ```
-
-    :Note: This layer is designed to be used in neural network architectures for tasks involving spatial
-           transformations.
+    This layer applies spatial transformations on input feature maps based on affine
+    transformation parameters. It consists of a grid generator and a bilinear sampler for
+    performing differentiable spatial transformations using standard affine matrix transformations.
     """
-    def __init__(self, img_res=None, out_dims=None, B=None):
-        super(SpatialTransformerAffine, self).__init__()
+
+    def __init__(
+            self,
+            img_res: tuple[int, int] = (100, 100),
+            out_dims: tuple[int, int] | None = None,
+            B: int = 1
+    ):
+        """
+        Class initializer for the SpatialTransformerAffine class.
+
+        :param img_res: Resolution of the input images (H, W).
+        Defaults to (100, 100) if not provided.
+
+        :param out_dims: Output dimensions of the transformed images (out_H, out_W).
+        Defaults to `img_res` if not provided.
+
+        :param B: Optional, batch size
+
+        :Attributes:
+            - H (int): Height of the input images.B
+            - W (int): Width of the input images.
+            - out_H (int): Height of the output images.
+            - out_W (int): Width of the output images.
+            - base_grid (tf.Tensor): Base grid for the grid generator.
+
+        :Methods:
+            - _transformer(input_fmap, theta=None): Applies the spatial transformation on the input feature map.
+            - _bilinear_sampler(img, x, y): Bilinear sampler for sampling values from the input feature map.
+            - _pixel_intensity(img, x, y): Retrieves pixel intensities from the input feature map.
+            - call(input_fmap, theta=None, B=None): Applies the spatial transformer affine layer on the input feature map.
+
+        :Example usage:
+        ```python
+        st_affine_layer = SpatialTransformerAffine(img_res=(256, 256), out_dims=(128, 128), B=32)
+        input_feature_map = tf.random.normal(shape=(32, 256, 256, 3))
+        theta_params = tf.random.normal(shape=(32, 2, 3, 3))  # Example affine transformation parameters
+        transformed_output = st_affine_layer.call(input_feature_map, theta=theta_params, B=32)
+        ```
+
+        :Note: This layer is designed to be used in neural network architectures for tasks involving spatial
+               transformations.
+        """
+        super().__init__()
 
         #### MAIN TRANSFORMER FUNCTION PART ####
         if not img_res:
@@ -68,20 +87,26 @@ class SpatialTransformerAffine(tf.keras.layers.Layer):
         #### ####
 
 
-    def _transformer(self, input_fmap, theta=None):
+    def _transformer(
+            self,
+            input_fmap: tf.Tensor,
+            theta: tf.Tensor | None = None
+    ) -> tuple[tf.Tensor, tf.Tensor]:
         """
-        Applies spatial transformation on the input feature map.
+        Apply the spatial transformation on the input feature map using affine transformations.
 
-        :param input_fmap: Input feature map tensor with shape (B, H, W, C).
-        :type input_fmap: tf.Tensor
-        :param theta: Affine transformation parameters tensor with shape (B, 2, 3, C), defaults to None.
-        :type theta: tf.Tensor, optional
+        This method transforms the input feature map based on the given affine
+        transformation parameters (`theta`).
 
-        :return: Transformed output feature map.
-        :rtype: tf.Tensor
+        :param input_fmap: input feature map with shape (B, H, W, C).
+        :param theta: affine transformation parameters tensor with shape (B, 2, 3, C), defaults to None.
+
+        :return: transformed output feature map with shape (B, out_H, out_W, C).
+
+        :Note: This method is used internally by the SpatialTransformerAffine layer.
         """
         B, H, W, C = input_fmap.shape
-        if B == None:
+        if B is None:
             self.B = 1
 
         # Initialize theta to identity transformation if not provided
@@ -106,12 +131,12 @@ class SpatialTransformerAffine(tf.keras.layers.Layer):
         # M2 = np.array([[0.5/(self.W-1), -np.pi/(self.W-1), 0/(self.W-1)],
         #                [-np.pi/(self.H-1), 0.5/(self.H-1), 0/(self.H-1)]]).astype(np.float32)
 
-        M1 = np.array([[1, np.pi, 0.2],
-                       [np.pi, 1, 0.2]]).astype(np.float32)
-        M2 = np.array([[0.5, -np.pi/2, -0.1],
-                       [-np.pi/2, 0.5, -0.1]]).astype(np.float32)
-
-        theta = tf.math.multiply(theta, M1) + M2
+        # M1 = np.array([[1, np.pi, 0.2],
+        #                [np.pi, 1, 0.2]]).astype(np.float32)
+        # M2 = np.array([[0.5, -np.pi/2, -0.1],
+        #                [-np.pi/2, 0.5, -0.1]]).astype(np.float32)
+        #
+        # theta = tf.math.multiply(theta, M1) + M2
 
         batch_grids = tf.linalg.matmul(theta, base_grid)
         batch_grids = tf.transpose(batch_grids, [2,3,0,1])
@@ -128,17 +153,25 @@ class SpatialTransformerAffine(tf.keras.layers.Layer):
         return out_fmap
 
 
-    def _bilinear_sampler(self, img, x, y):
+    def _bilinear_sampler(
+            self,
+            img: tf.Tensor,
+            x: int,
+            y: int
+    ) -> tf.Tensor:
         """
-        Implementation of garden-variety bilinear sampler,
-        samples for all batches and channels of the
-        input feature map.
+        Perform bilinear sampling on the input feature map based on the given coordinates.
 
-        Args:
-            img:  Input feature map, expects shape (B, H, W, C).
-            x, y: Coordinates returned by the grid generator.
+        This method implements bilinear sampling to interpolate pixel values from the input
+        feature map 'img' at the specified non-integer coordinates 'x' and 'y'.
 
-        Returns: Output feature map after sampling, in the shape (B, H, W, C).
+        :param img: Input feature map. Shape should be (B, H, W, C).
+        :param x: X-coordinates for bilinear sampling.
+        :param y: Y-coordinates for bilinear sampling.
+
+        :return: Output feature map after bilinear sampling. Shape is (B, H, W, C).
+
+        :Note: This method is used internally by the SpatialTransformerAffine layer.
         """
         B, H, W, C = img.shape
 
@@ -192,18 +225,29 @@ class SpatialTransformerAffine(tf.keras.layers.Layer):
         return out
 
 
-    def _pixel_intensity(self, img, x, y):
+    def _pixel_intensity(
+            self,
+            img: tf.Tensor,
+            x: tf.Tensor,
+            y: tf.Tensor
+    ):
         """
-        Retrieves pixel intensities from the input feature map.
+        Gather efficiently the pixel intensities of transformed coordinates post-sampling.
 
-        Args:
-            img: Input feature map, expects shape (B, H, W, C).
-            x, y: Coordinates for pixel intensities.
+        Given the input feature map 'img' and transformed coordinates 'x' and 'y', this
+        method gathers pixel intensities using bilinear interpolation. The transformed
+        coordinates are expecteed to be of the same shape.
 
-        Returns: Pixel intensities.
+        :param img: Input feature map. Shape should be (B, H, W, C).
+        :param x: X-coordinates for pixel intensity gathering.
+        :param y: Y-coordinates for pixel intensity gathering.
+
+        :return: Pixel intensities at the specified coordinates. Shape is the same as `x` and `y`.
+
+        :Note: This method is used internally by the SpatialTransformerAffine layer.
         """
         B, H, W, C = img.shape
-        if B == None:
+        if B is None:
             B = 1
             x = tf.expand_dims(x[0], axis=0)
             y = tf.expand_dims(y[0], axis=0)
@@ -215,29 +259,30 @@ class SpatialTransformerAffine(tf.keras.layers.Layer):
         indices = tf.stack([b, y, x], axis=3)
         return tf.gather_nd(img, indices)
 
-    def call(self, input_fmap, theta=None, B=None):
+
+    def call(
+            self,
+            input_fmap: tf.Tensor,
+            theta: tf.Tensor | None = None,
+            B: int = 1
+    ) -> tf.Tensor:
         """
-        Applies the spatial transformer affine layer on the input feature map.
+        Given an input feature map `input_fmap` and optional transformation parameters `theta`
+        and batch size `B`, this method computes the spatial transformation using affine
+        transformation and applies it to the input feature map.
 
-        :param input_fmap: Input feature map tensor with shape (B, H, W, C).
-        :type input_fmap: tf.Tensor
-        :param theta: Affine transformation parameters tensor with shape (B, 2, 3, C), defaults to None.
-        :type theta: tf.Tensor, optional
-        :param B: Batch size, defaults to None.
-        :type B: int, optional
+        :param input_fmap: Input feature map to be transformed. Shape should be (B, H, W, C).
+        :param theta: Transformation parameters with shape (B, 2, 3, C). If None,
+        identity transformation is used.
 
-        :return: Transformed output feature map.
-        :rtype: tf.Tensor
+        :param B: Batch size. Defaults to 1.
+
+        :return: transformed feature map with the same shape as `input_fmap`.
+
+        :Note: This method is used to apply the B-spline transformation to the input feature map.
         """
         self.B = B
         out = self._transformer(input_fmap, theta)
         return out
-
-
-# 1st two paragraphs in text: The biotechnological problem is. ...
-# the machine learning problem is ...
-# the contributions is ...
-
-# For slides as well
 
 
