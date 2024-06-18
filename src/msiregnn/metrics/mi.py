@@ -12,7 +12,7 @@ __all__ = [
 def sample_coords(
         dims: tuple[int, int],
         n: int
-) -> tuple[int, int]:
+) -> tuple[np.array, np.array]:
     """
     Sample random coordinates within the specified dimensions.
 
@@ -66,7 +66,7 @@ def Gphi( # noqa
 
 def construct_z(
         img: tf.Tensor,
-        c: tuple[int, int, int, int]
+        c: tuple[np.array, np.array, np.array, np.array]
 ) -> tf.Tensor:
     """
     Construct the difference vector z based on image and coordinates.
