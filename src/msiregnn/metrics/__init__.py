@@ -2,7 +2,9 @@
 
 
 from .mi import mi
+from .rmse import rmse
 
 __all__ = [
-    "mi"
+    "mi",
+    "rmse"
 ]
