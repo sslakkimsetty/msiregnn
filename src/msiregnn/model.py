@@ -1,4 +1,4 @@
-""" The coregistration model and training loop. """
+"""The coregistration model and training loop."""
 
 import numpy as np
 import tensorflow as tf
@@ -8,6 +8,7 @@ from tensorflow.keras.layers import (
     Flatten,
     MaxPooling2D,
 )
+
 import msiregnn as msn
 
 __all__ = [

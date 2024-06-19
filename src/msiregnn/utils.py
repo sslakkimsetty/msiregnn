@@ -1,9 +1,10 @@
-""" Utility functions and QoL improvements. """
+"""Utility functions and QoL improvements."""
 
-import msiregnn as msn
+import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
+
+import msiregnn as msn
 
 __all__ = [
     "checker_board",
@@ -91,7 +92,6 @@ def simulate_theta_bspline(
 
     :return: a Tensor containing the transformation parameters.
     """
-
     height, width = img_res
     sx, sy = grid_res
     gx, gy = np.ceil(width / sx), np.ceil(height / sy)
