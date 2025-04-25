@@ -3,15 +3,15 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-
-import msiregnn as msn
+from . import SpatialTransformerBspline
 
 __all__ = [
     "checker_board",
     "grid",
     "simulate_theta_bspline",
     "imshow",
-    "plot_vector_field"
+    "plot_vector_field",
+    "locnet_output_shape"
 ]
 
 def checker_board(
@@ -105,20 +105,6 @@ def simulate_theta_bspline(
     return theta
 
 
-def locnet_shape(
-        img: tf.Tensor
-) -> tuple[int, int]:
-    """
-    Evaluate the shape of the output of the locnet network.
-
-    For a given input image, return the shape of the output feature map of the locnet network.
-
-    :param img: the input image.
-    :return: the shape of the output feature map of the locnet network.
-    """
-    return msn.LocNet()(img).numpy().shape
-
-
 def imshow(
         inp: tf.Tensor | np.ndarray,
         figsize: tuple[int, int] | None = None,
@@ -158,9 +144,7 @@ def imshow(
 
 
 def visualize_coreg_images(
-        model: msn.BsplineRegistration,
-        fixed: tf.Tensor = tf.ones(shape=(1, 200, 200, 1)),
-        moving: tf.Tensor = tf.ones(shape=(1, 200, 200, 1)),
+        model,
         show: bool = True
 ) -> None:
     """
@@ -170,27 +154,27 @@ def visualize_coreg_images(
     the transformed moving image post coregistration and the transformation applied on to a grid.
 
     :param model: the BsplineRegistration model.
-    :param fixed: reference image (must be the same one used in the model training).
-    :param moving: target image (must be the same one used in the model training).
     :param show: whether to show the plot immediately.
 
     :return: None (draws the composite plot in the plot pane).
     """
-    (moving_hat, _), theta_hat = model(moving)
-    stn = msn.SpatialTransformerBspline(img_res=model.img_res,
-                                        grid_res=model.grid_res,
-                                        out_dims=(model.img_res), B=1)
-    fixed_hat, _ = stn(fixed, theta=theta_hat, B=1)
+    stn = SpatialTransformerBspline(
+        img_res = (model.img_res[1], model.img_res[2]),
+        grid_res = model.grid_res,
+        out_dims = (model.img_res[1], model.img_res[2]),
+        B=1
+    )
+    fixed_hat, _ = stn(model.fixed, theta=model.theta, B=1)
 
     plt.figure(figsize=(24,6))
     plt.subplot(141)
-    imshow(fixed, title="fixed, "+str(fixed.shape), show=False)
+    imshow(model.fixed, title="fixed, "+str(model.fixed.shape), show=False)
 
     plt.subplot(142)
-    imshow(moving, title="moving, "+str(moving.shape), show=False)
+    imshow(model.moving, title="moving, "+str(model.moving.shape), show=False)
 
     plt.subplot(143)
-    imshow(moving_hat, title="tr. moving, "+str(moving_hat.shape), show=False)
+    imshow(model.moving_hat, title="tr. moving, "+str(model.moving_hat.shape), show=False)
 
     plt.subplot(144)
     imshow(fixed_hat, title="tr. grid, "+str(fixed_hat.shape), show=False)
@@ -208,6 +192,7 @@ def plot_vector_field(
     Plot the vector field with x- and y-components
 
     :param delta: the vector field as a Tensor
+    :param title: the title of the plot
     :param show: whether to show the plot immediately
 
     :return: None
@@ -221,7 +206,7 @@ def plot_vector_field(
     x = np.arange(meshsize[1])
     xs, ys = np.meshgrid(x, y)
 
-    plt.quiver(xs, ys, x_comp, y_comp)
+    plt.quiver(xs, ys, x_comp, y_comp, scale=1, scale_units="xy")
     plt.xticks([])
     plt.yticks([])
     plt.title(title)
@@ -230,14 +215,9 @@ def plot_vector_field(
 
 
 def visualize_coreg_results(
-        model: msn.BsplineRegistration,
-        fixed: tf.Tensor,
-        moving: tf.Tensor,
-        loss_list: list[tf.Tensor],
+        model,
         delta_true: tf.Tensor | None = None,
-        delta_hat: tf.Tensor | None = None,
         theta_true: tf.Tensor | None = None,
-        theta_hat: tf.Tensor | None = None
 ) -> None:
     """
     Visualize the coregistration results with BsplineRegistration.
@@ -254,11 +234,11 @@ def visualize_coreg_results(
     :return: None (draws several plots in the plot pane).
     """
     # Visualization of images prior to and post coregistration
-    msn.utils.visualize_coreg_images(model, fixed, moving)
+    visualize_coreg_images(model)
 
     # Loss graph
     plt.figure(figsize=(6, 6))
-    plt.plot(range(len(loss_list)), loss_list)
+    plt.plot(range(len(model.loss_list)), model.loss_list)
     plt.title("Loss")
     plt.xlabel("Iteration #")
     plt.ylabel("Loss")
@@ -268,23 +248,68 @@ def visualize_coreg_results(
     if delta_true is not None:
         plt.figure(figsize=(12, 6))
         plt.subplot(121)
-        msn.utils.plot_vector_field(delta_true, title="True DVF", show=False)
+        plot_vector_field(delta_true, title="True DVF", show=False)
         plt.subplot(122)
-        msn.utils.plot_vector_field(delta_hat, title="Predicted DVF", show=True)
+        plot_vector_field(model.delta_hat, title="Predicted DVF", show=True)
     else:
         plt.figure(figsize=(6, 6))
-        msn.utils.plot_vector_field(delta_hat, title="Predicted DVF", show=True)
+        plot_vector_field(model.delta_hat, title="Predicted DVF", show=True)
 
     # Control grid vector field
     if theta_true is not None:
         plt.figure(figsize=(12, 6))
         plt.subplot(121)
-        msn.utils.plot_vector_field(theta_true, title="True control grid vector field", show=False)
+        plot_vector_field(theta_true, title="True control grid vector field", show=False)
         plt.subplot(122)
-        msn.utils.plot_vector_field(theta_hat, title="Predicted control grid vector field")
+        plot_vector_field(model.theta, title="Predicted control grid vector field")
     else:
         plt.figure(figsize=(6, 6))
-        msn.utils.plot_vector_field(theta_hat, title="Predicted control grid vector field")
+        plot_vector_field(model.theta, title="Predicted control grid vector field")
 
 
+def locnet_output_shape(locnet, input_shape):
+    """
+    Evaluate the shape of the output of the locnet network.
+
+    For a given input image, return the shape of the output feature map of the locnet network.
+
+    :param loc_net: the locnet network.
+    :param input_shape: the input image shape.
+
+    :return: the shape of the output feature map of the locnet network.
+    """
+    dummy_input = tf.random.uniform(input_shape)  # Create a dummy input tensor with random values
+    output = locnet(dummy_input)  # Perform a forward pass
+    return output.shape
+
+
+def nans_to_zeros(tensor):
+    return tf.where(tf.math.is_nan(tensor), tf.zeros_like(tensor), tensor)
+
+
+def affine_matrix_from_params(scale=1.0, angle=0, center=(0, 0)):
+    scale = tf.constant(scale, dtype=tf.float32)
+    theta = tf.experimental.numpy.deg2rad(tf.constant(angle, dtype=tf.float32))
+    cx, cy = center
+
+    translate_POT = tf.constant([
+        [1, 0, -cx],
+        [0, 1, -cy],
+        [0, 0, 1]], dtype=tf.float32)
+
+    a = scale * tf.math.cos(theta)
+    b = scale * tf.math.sin(theta)
+
+    sr_matrix = tf.stack([
+        [a, -b, 0],
+        [b, a, 0],
+        [0, 0, 1]], axis=0)
+
+    translate_POT_back = tf.constant([
+        [1, 0, cx],
+        [0, 1, cy],
+        [0, 0, 1]], dtype=tf.float32)
+
+    M = tf.linalg.matmul(translate_POT_back, tf.linalg.matmul(sr_matrix, translate_POT))
+    return M[:2, :]
 

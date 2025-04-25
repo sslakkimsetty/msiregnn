@@ -1,6 +1,5 @@
 """Evaluates RMSE between two images that is differentiable."""
 
-import numpy as np
 import tensorflow as tf
 
 __all__ = [
@@ -20,6 +19,7 @@ def rmse(
 
     :return: the root mean squared error between the Tensors
     """
-    se = np.square(x.numpy().squeeze() - y.numpy().squeeze())
-    mse = se.mean()
-    return np.sqrt(mse)
+    # se = tf.square(x.numpy().squeeze() - y.numpy().squeeze())
+    se = tf.square(x - y)
+    mse = tf.reduce_mean(se)
+    return tf.sqrt(mse)

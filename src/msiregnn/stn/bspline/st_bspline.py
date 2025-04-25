@@ -455,3 +455,11 @@ class SpatialTransformerBspline(tf.keras.layers.Layer):
         self.B = B
         out = self._transformer(input_fmap, theta)
         return out
+
+    def __call__(
+            self,
+            input_fmap: tf.Tensor,
+            theta: tf.Tensor | None = None,
+            B: int = 1
+    ) -> tf.Tensor:
+        return self.call(input_fmap, theta, B)

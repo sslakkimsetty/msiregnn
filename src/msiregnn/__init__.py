@@ -6,10 +6,5 @@ from .stn import (
     SpatialTransformerBspline,
     SpatialTransformerAffine
 )
-from .model import (
-    LocNet,
-    TransformationRegressor,
-    BsplineRegistration
-)
+from . import reg
 from . import utils
-from . import training
