@@ -140,7 +140,7 @@ def imshow(
     plt.xticks([])
     plt.yticks([])
     if show:
-        plt.show()
+        plt.draw()
 
 
 def visualize_coreg_images(
