@@ -933,3 +933,6 @@ FodyWeavers.xsd
 .bumpversion.cfg
 .cruft.json
 .serena/
+
+# Personal testing directory
+testing/
