@@ -46,14 +46,6 @@ def train_model(
     while True:
         with tf.GradientTape() as tape:
             loss_value, grads = grad(model, loss_type=loss_type) 
-
-            if tf.math.is_nan(loss_value):
-                print(f"NaN detected at iteration {it}")
-                print("Parameters at NaN:")
-                if hasattr(model, 'debug_parameters'):
-                    model.debug_parameters()
-                break
-
             model.loss_list.append(loss_value.numpy())
             
             # Learning rate scheduling with adaptive parameters

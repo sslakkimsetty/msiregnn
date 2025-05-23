@@ -118,15 +118,6 @@ class AffineRegistration(tf.keras.models.Model):
             theta=self.theta,
             B=self.B) 
 
-    def debug_parameters(self):
-        """Print current transformation parameters for debugging"""
-        print(f"Scale X: {self.scale_x.numpy()}")
-        print(f"Scale Y: {self.scale_y.numpy()}")
-        print(f"Rotation (deg): {self.rotation.numpy() * 180 / np.pi}")
-        print(f"Trans X: {self.trans_x.numpy()}")
-        print(f"Trans Y: {self.trans_y.numpy()}")
-        print(f"Theta matrix:\n{self.theta.numpy()}")
-
     def __call__(self):
         self.call()
 
