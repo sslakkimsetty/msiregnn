@@ -2,7 +2,8 @@
 
 import msiregnn as msn
 import numpy as np
-import tensorflow as tf
+import tensorflow as tf 
+
 from .LocNet import LocNet
 from .TransformationExtractor import TransformationExtractor
 from ..stn.affine.st_affine import SpatialTransformerAffine

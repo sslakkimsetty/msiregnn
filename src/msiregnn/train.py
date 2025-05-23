@@ -13,47 +13,89 @@ def train_model(
         model,
         loss_type: str = "mi",
         optim: tf.keras.optimizers = tf.keras.optimizers.Adagrad(learning_rate=1e-3),
-        ITERMAX: int = 1000, # noqa
+        ITERMAX: int = 1000,
+        lr_schedule: bool = True,
+        patience: int = 50,  # For early stopping
+        lr_decay_factor: float = 0.1  # Controls how much LR decreases over full training
 ):
     """
-    Train the AffineRegistration model.
-    :param loss_type: Loss type as str.
-    :param optim: optimizer used for training.
-    :param ITERMAX: maximum number of iterations.
-
-    :return: a tuple consisting of trained BsplineRegistration model and a loss list.
+    Train the AffineRegistration model with adaptive learning rate scheduling.
+    
+    :param model: The model to train
+    :param loss_type: Loss type as str
+    :param optim: Optimizer used for training
+    :param ITERMAX: Maximum number of iterations
+    :param lr_schedule: Whether to use learning rate scheduling
+    :param patience: Number of iterations to wait for improvement before early stopping
+    :param lr_decay_factor: Controls how much learning rate decreases by end of training (e.g., 0.1 means final LR will be ~10% of initial LR)
+    
+    :return: Trained model
     """
-    it = 0 # iteration count
-    model.loss_list = list() # list to store loss values
-
+    it = 0
+    model.loss_list = list()
+    best_loss = float('inf')
+    patience_counter = 0
+    initial_lr = optim.learning_rate.numpy()
+    
+    # Calculate adaptive decay rate based on ITERMAX
+    adaptive_decay = lr_decay_factor / ITERMAX
+    
+    # How often to update LR (e.g., 10 times during training)
+    update_frequency = max(1, ITERMAX // 10)
+    
     while True:
         with tf.GradientTape() as tape:
             loss_value, grads = grad(model, loss_type=loss_type)
             model.loss_list.append(loss_value.numpy())
+            
+            # Learning rate scheduling with adaptive parameters
+            if lr_schedule and it > 0 and it % update_frequency == 0:
+                # Decay factor now scales with ITERMAX
+                current_lr = initial_lr * (1.0 / (1.0 + adaptive_decay * it))
+                optim.learning_rate.assign(current_lr)
+            
             optim.apply_gradients(zip(grads, model.trainable_variables))
+            
+            # Early stopping
+            if loss_value < best_loss:
+                best_loss = loss_value
+                patience_counter = 0
+            else:
+                patience_counter += 1
+                
+            if patience_counter >= patience:
+                print(f"Early stopping at iteration {it}")
+                break
 
         it += 1
         if it % 25 == 0:
-            print("ITER:", it, "LOSS:", loss_value.numpy())
-            # print("theta:", model.theta.numpy())
+            print(f"ITER: {it}, LOSS: {loss_value.numpy()}, LR: {optim.learning_rate.numpy()}")
             imshow(model.moving_hat)
         if it >= ITERMAX:
             break
+            
+    return model
 
 
 def grad(
         model,
         loss_type: str = "mi",
+        clip_gradients: bool = True,
+        max_grad_norm: float = 1.0,
 ) -> tf.Tensor:
     """
     Compute gradients for backprop in AffineRegistration
 
+    :param model: The model to compute gradients for
     :param loss_type: Loss type as str
+    :param clip_gradients: Whether to clip gradients to prevent exploding gradients
+    :param max_grad_norm: Maximum norm for gradient clipping when clip_gradients is True
 
-    :return: Computed gradients of the loss to be backproped as tf.Tensors.
+    :return: A tuple of (total_loss, gradients) where gradients are computed (and optionally clipped)
+             tf.Tensors to be used with an optimizer.
     """
     # Initialize maximum regularization loss to model loss
-    max_reg_ratio = 0.1
+    max_reg_ratio = 0.5
 
     with tf.GradientTape() as tape:
         model.call()
@@ -68,7 +110,17 @@ def grad(
                 model.reg_weight *= max_reg_ratio / reg_ratio
 
             total_loss = model_loss + model.reg_weight * reg_loss
-    return total_loss, tape.gradient(total_loss, model.trainable_variables)
+        else:
+            total_loss = model_loss
+
+    # Compute gradients
+    gradients = tape.gradient(total_loss, model.trainable_variables)
+    
+    # Apply gradient clipping if enabled
+    if clip_gradients:
+        gradients, _ = tf.clip_by_global_norm(gradients, max_grad_norm)
+        
+    return total_loss, gradients
 
 
 def _loss(
