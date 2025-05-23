@@ -50,7 +50,13 @@ class TransformationExtractor(tf.keras.layers.Layer):
 
         self.layers_list.append(Flatten())
         [self.layers_list.append(Dense(units=x)) for x in layers_units[::-1]]
-        self.layers_list.append(Dense(units=layers_units[-1]*factor, bias_initializer="zeros"))
+        self.layers_list.append(
+            Dense(
+                units=layers_units[-1]*factor,
+                kernel_initializer=tf.keras.initializers.RandomNormal(mean=0.0, stddev=0.1),
+                bias_initializer="zeros"
+            )
+        )
 
     def units_calc(self, locnet_size, locnet_layers_num, out_units, factor):
         N = locnet_size / out_units

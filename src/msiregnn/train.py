@@ -45,7 +45,15 @@ def train_model(
     
     while True:
         with tf.GradientTape() as tape:
-            loss_value, grads = grad(model, loss_type=loss_type)
+            loss_value, grads = grad(model, loss_type=loss_type) 
+
+            if tf.math.is_nan(loss_value):
+                print(f"NaN detected at iteration {it}")
+                print("Parameters at NaN:")
+                if hasattr(model, 'debug_parameters'):
+                    model.debug_parameters()
+                break
+
             model.loss_list.append(loss_value.numpy())
             
             # Learning rate scheduling with adaptive parameters
@@ -157,11 +165,17 @@ def regularization_loss(model): # noqa
 
 
 def affine_model_regularization_loss(model):
-    target = tf.constant([1.0, 0.0, 0.0, 0.0], dtype=tf.float32)
-    diff = model.theta_sterile - target
-    reg_loss = (tf.pow(tf.abs(diff[0]) + 1, 3) +
-                tf.reduce_sum(tf.square(diff[1:] + 1)))
-    return tf.reduce_mean(tf.square(model.theta_sterile - target))
+    if hasattr(model, 'theta_raw'):
+        # For new 5-parameter model: penalize deviation from zeros
+        # When theta_raw is all zeros, we get identity transformation
+        return tf.reduce_mean(tf.square(model.theta_raw))
+    else:
+        # Fallback for old 4-parameter model
+        target = tf.constant([1.0, 0.0, 0.0, 0.0], dtype=tf.float32)
+        diff = model.theta_sterile - target
+        reg_loss = (tf.pow(tf.abs(diff[0]) + 1, 3) +
+                    tf.reduce_sum(tf.square(diff[1:] + 1)))
+        return tf.reduce_mean(tf.square(model.theta_sterile - target))
 
 
 def bspline_model_regularization_loss(model):

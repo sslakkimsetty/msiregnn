@@ -53,10 +53,11 @@ class AffineRegistration(tf.keras.models.Model):
             min_output_size = 10
         )
         self.transformation_extractor = TransformationExtractor(
-            units = 4,
+            units = 5,  # 5 params: scale_x, scale_y, rotation, trans_x, trans_y
             input_shape = self.img_res,
             locnet = self.locnet,
-            factor = factor)
+            factor = factor
+        )
         self.transformer = SpatialTransformerAffine(
             img_res = (self.img_res[1], self.img_res[2]),
             out_dims = (self.img_res[1], self.img_res[2]),
@@ -67,30 +68,64 @@ class AffineRegistration(tf.keras.models.Model):
         xs = self.locnet(inputs=xs)
         xs = tf.transpose(xs, [0, 3, 1, 2])
         theta = self.transformation_extractor(inputs=xs)
-        self.theta_sterile = theta
 
-        a = theta[:, 0]
-        b = theta[:, 1]
-        c = 0.5 + theta[:, 2]
-        d = 0.5 + theta[:, 3]
-
-        _a = a * tf.math.cos(b)
-        _b = -a * tf.math.sin(b)
-        _c = ( (1 - a * tf.math.cos(b)) * c ) + ( a * tf.math.sin(b) * d )
-
-        _d = -_b
-        _e = _a
-        _f = ( (1 - a * tf.math.cos(b)) * d ) - ( a * tf.math.sin(b) * c )
-
-        theta1 = tf.stack([_a, _b, _c], axis=1)
-        theta2 = tf.stack([_d, _e, _f], axis=1)
-        theta = tf.stack([theta1, theta2], axis=1)
-        self.theta = tf.squeeze(theta, axis=0)
+        # Store raw parameters for regularization
+        self.theta_raw = theta
+        
+        # Extract parameters with gentler initialization
+        # Don't use tanh initially - it can cause gradient vanishing
+        scale_x = 1.0 + theta[:, 0] * 0.1    # Start with small deviations
+        scale_y = 1.0 + theta[:, 1] * 0.1    
+        rotation = theta[:, 2] * 0.1          # About ±5.7 degrees initially
+        trans_x = theta[:, 3] * 0.05          # Small translations
+        trans_y = theta[:, 4] * 0.05          
+        
+        # Clip to reasonable ranges to prevent extreme values
+        scale_x = tf.clip_by_value(scale_x, 0.5, 2.0)
+        scale_y = tf.clip_by_value(scale_y, 0.5, 2.0)
+        rotation = tf.clip_by_value(rotation, -0.785, 0.785)  # ±45 degrees
+        trans_x = tf.clip_by_value(trans_x, -0.5, 0.5)
+        trans_y = tf.clip_by_value(trans_y, -0.5, 0.5)
+        
+        # Store individual parameters for inspection/debugging
+        self.scale_x = scale_x
+        self.scale_y = scale_y
+        self.rotation = rotation
+        self.trans_x = trans_x
+        self.trans_y = trans_y
+        
+        # Construct affine matrix without shear
+        cos_r = tf.cos(rotation)
+        sin_r = tf.sin(rotation)
+        
+        # Add small epsilon to prevent numerical issues
+        eps = 1e-7
+        
+        a11 = scale_x * cos_r + eps
+        a12 = -scale_y * sin_r
+        a13 = trans_x
+        a21 = scale_x * sin_r
+        a22 = scale_y * cos_r + eps
+        a23 = trans_y
+        
+        theta1 = tf.stack([a11, a12, a13], axis=1)
+        theta2 = tf.stack([a21, a22, a23], axis=1)
+        self.theta = tf.stack([theta1, theta2], axis=1)
+        self.theta = tf.squeeze(self.theta, axis=0)
 
         self.moving_hat = self.transformer(
             input_fmap=self.moving,
             theta=self.theta,
-            B=self.B)
+            B=self.B) 
+
+    def debug_parameters(self):
+        """Print current transformation parameters for debugging"""
+        print(f"Scale X: {self.scale_x.numpy()}")
+        print(f"Scale Y: {self.scale_y.numpy()}")
+        print(f"Rotation (deg): {self.rotation.numpy() * 180 / np.pi}")
+        print(f"Trans X: {self.trans_x.numpy()}")
+        print(f"Trans Y: {self.trans_y.numpy()}")
+        print(f"Theta matrix:\n{self.theta.numpy()}")
 
     def __call__(self):
         self.call()
