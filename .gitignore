@@ -929,3 +929,7 @@ FodyWeavers.xsd
 # Additional files built by Visual Studio
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,sublimetext,pycharm,pycharm+all,python,emacs,git,vim,visualstudio,windows,linux
+# Development tools and environment files
+.bumpversion.cfg
+.cruft.json
+.serena/
