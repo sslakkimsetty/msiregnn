@@ -15,7 +15,7 @@ def train_model(
         optim: tf.keras.optimizers = tf.keras.optimizers.Adagrad(learning_rate=1e-3),
         ITERMAX: int = 1000,
         lr_schedule: bool = True,
-        patience: int = 50,  # For early stopping
+        patience: int = 100,  # For early stopping
         lr_decay_factor: float = 0.1  # Controls how much LR decreases over full training
 ):
     """

@@ -125,7 +125,8 @@ class AffineRegistration(tf.keras.models.Model):
             self,
             loss_type: str = "mi",
             optim: tf.keras.optimizers = tf.keras.optimizers.Adagrad(learning_rate=1e-3),
-            ITERMAX: int = 1000  # noqa
+            ITERMAX: int = 1000, # noqa 
+            patience = 100
     ):
         if self.pretrain:
             if not self.theta_id:
@@ -141,5 +142,11 @@ class AffineRegistration(tf.keras.models.Model):
                 learning_rate = self.pretrain_lr)
 
         self.loss_list = list()
-        train_model(self, loss_type=loss_type, optim=optim, ITERMAX=ITERMAX)
+        train_model(
+            self, 
+            loss_type = loss_type, 
+            optim = optim, 
+            ITERMAX = ITERMAX, 
+            patience = patience 
+        )
 
