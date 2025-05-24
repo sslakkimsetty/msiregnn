@@ -124,10 +124,48 @@ class AffineRegistration(tf.keras.models.Model):
     def train(
             self,
             loss_type: str = "mi",
-            optim: tf.keras.optimizers = tf.keras.optimizers.Adagrad(learning_rate=1e-3),
-            ITERMAX: int = 1000, # noqa 
-            patience = 100
+            optim: tf.keras.optimizers = None,
+            ITERMAX: int = 1000,
+            patience: int = 100,
+            lr_schedule_type: str = "cosine_restarts"
     ):
+        """
+        Train the AffineRegistration model.
+        
+        Args:
+            loss_type: Loss function type ("mi" or "mse")
+            optim: Keras optimizer. If None, creates Adam with specified schedule
+            ITERMAX: Maximum iterations
+            patience: Early stopping patience
+            lr_schedule_type: LR schedule when optim=None ("cosine_restarts", "cosine", "exponential", "constant")
+        """
+        # Create default optimizer if not provided
+        if optim is None:
+            if lr_schedule_type == "cosine_restarts":
+                lr_schedule = tf.keras.optimizers.schedules.CosineDecayRestarts(
+                    initial_learning_rate=0.01,
+                    first_decay_steps=100,
+                    t_mul=1.5,
+                    m_mul=0.8,
+                    alpha=0.0001
+                )
+            elif lr_schedule_type == "cosine":
+                lr_schedule = tf.keras.optimizers.schedules.CosineDecay(
+                    initial_learning_rate=0.01,
+                    decay_steps=1000,  # Fixed, not ITERMAX
+                    alpha=0.001
+                )
+            elif lr_schedule_type == "exponential":
+                lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+                    initial_learning_rate=0.01,
+                    decay_steps=100,
+                    decay_rate=0.96
+                )
+            else:  # "constant"
+                lr_schedule = 0.01
+                
+            optim = tf.keras.optimizers.Adam(learning_rate=lr_schedule)
+        
         if self.pretrain:
             if not self.theta_id:
                 self.theta_id = tf.constant(
@@ -140,13 +178,13 @@ class AffineRegistration(tf.keras.models.Model):
                 theta_id = self.theta_id,
                 epochs = self.pretrain_epochs,
                 learning_rate = self.pretrain_lr)
-
+            
         self.loss_list = list()
         train_model(
             self, 
-            loss_type = loss_type, 
-            optim = optim, 
-            ITERMAX = ITERMAX, 
-            patience = patience 
+            loss_type=loss_type, 
+            optim=optim, 
+            ITERMAX=ITERMAX, 
+            patience=patience
         )
 

@@ -14,45 +14,49 @@ def train_model(
         loss_type: str = "mi",
         optim: tf.keras.optimizers = tf.keras.optimizers.Adagrad(learning_rate=1e-3),
         ITERMAX: int = 1000,
-        lr_schedule: bool = True,
-        patience: int = 100,  # For early stopping
-        lr_decay_factor: float = 0.1  # Controls how much LR decreases over full training
+        patience: int = 100,
+        lr_reduction_patience: int = 50,  # For plateau detection
+        lr_reduction_factor: float = 0.5   # For plateau reduction
 ):
     """
-    Train the AffineRegistration model with adaptive learning rate scheduling.
+    Train the AffineRegistration model.
     
-    :param model: The model to train
-    :param loss_type: Loss type as str
-    :param optim: Optimizer used for training
-    :param ITERMAX: Maximum number of iterations
-    :param lr_schedule: Whether to use learning rate scheduling
-    :param patience: Number of iterations to wait for improvement before early stopping
-    :param lr_decay_factor: Controls how much learning rate decreases by end of training (e.g., 0.1 means final LR will be ~10% of initial LR)
-    
-    :return: Trained model
+    Args:
+        model: Model to train
+        loss_type: Loss function type ("mi" or "mse")
+        optim: Keras optimizer (should include LR schedule if desired)
+        ITERMAX: Maximum iterations
+        patience: Early stopping patience
+        lr_reduction_patience: Iterations before reducing LR on plateau
+        lr_reduction_factor: Factor to reduce LR by on plateau
     """
     it = 0
     model.loss_list = list()
     best_loss = float('inf')
     patience_counter = 0
-    initial_lr = optim.learning_rate.numpy()
-    
-    # Calculate adaptive decay rate based on ITERMAX
-    adaptive_decay = lr_decay_factor / ITERMAX
-    
-    # How often to update LR (e.g., 10 times during training)
-    update_frequency = max(1, ITERMAX // 10)
+    plateau_counter = 0
+    plateau_best_loss = float('inf')
     
     while True:
         with tf.GradientTape() as tape:
-            loss_value, grads = grad(model, loss_type=loss_type) 
+            loss_value, grads = grad(model, loss_type=loss_type)
             model.loss_list.append(loss_value.numpy())
             
-            # Learning rate scheduling with adaptive parameters
-            if lr_schedule and it > 0 and it % update_frequency == 0:
-                # Decay factor now scales with ITERMAX
-                current_lr = initial_lr * (1.0 / (1.0 + adaptive_decay * it))
-                optim.learning_rate.assign(current_lr)
+            # Plateau detection for fixed LR optimizers
+            if loss_value < plateau_best_loss:
+                plateau_best_loss = loss_value
+                plateau_counter = 0
+            else:
+                plateau_counter += 1
+                
+            # Reduce LR on plateau (only works for fixed LR)
+            if (plateau_counter >= lr_reduction_patience and 
+                isinstance(optim.learning_rate, (int, float))):
+                current_lr = float(optim.learning_rate)
+                new_lr = current_lr * lr_reduction_factor
+                optim.learning_rate.assign(new_lr)
+                plateau_counter = 0
+                print(f"Plateau detected. Reducing LR from {current_lr:.6f} to {new_lr:.6f}")
             
             optim.apply_gradients(zip(grads, model.trainable_variables))
             
@@ -69,7 +73,9 @@ def train_model(
 
         it += 1
         if it % 25 == 0:
-            print(f"ITER: {it}, LOSS: {loss_value.numpy()}, LR: {optim.learning_rate.numpy()}")
+            current_lr = (optim.learning_rate.numpy() if hasattr(optim.learning_rate, 'numpy') 
+                         else optim.learning_rate)
+            print(f"ITER: {it}, LOSS: {loss_value.numpy()}, LR: {current_lr}")
             imshow(model.moving_hat)
         if it >= ITERMAX:
             break
