@@ -3,15 +3,16 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
+
 from . import SpatialTransformerBspline
 
 __all__ = [
     "checker_board",
     "grid",
-    "simulate_theta_bspline",
     "imshow",
+    "locnet_output_shape",
     "plot_vector_field",
-    "locnet_output_shape"
+    "simulate_theta_bspline"
 ]
 
 def checker_board(
@@ -288,11 +289,11 @@ def nans_to_zeros(tensor):
 
 
 def affine_matrix_from_params(
-    scale_x: float = 1.0, 
-    scale_y: float = 1.0, 
-    angle: float = 0, 
-    trans_x: float = 0, 
-    trans_y: float = 0, 
+    scale_x: float = 1.0,
+    scale_y: float = 1.0,
+    angle: float = 0,
+    trans_x: float = 0,
+    trans_y: float = 0,
     center: tuple[float, float] = (0.5, 0.5)
 ) -> tf.Tensor:
     """
@@ -317,24 +318,24 @@ def affine_matrix_from_params(
     trans_x = tf.constant(trans_x, dtype=tf.float32)
     trans_y = tf.constant(trans_y, dtype=tf.float32)
     cx, cy = tf.constant(center[0], dtype=tf.float32), tf.constant(center[1], dtype=tf.float32)
-    
+
     # Compute rotation components
     cos_theta = tf.math.cos(theta)
     sin_theta = tf.math.sin(theta)
-    
+
     # Build transformation matrix (scale + rotation, no shear)
     a11 = scale_x * cos_theta
     a12 = -scale_y * sin_theta
     a21 = scale_x * sin_theta
     a22 = scale_y * cos_theta
-    
+
     # Translation includes centering for rotation/scaling
     a13 = (1 - a11) * cx - a12 * cy + trans_x
     a23 = -a21 * cx + (1 - a22) * cy + trans_y
-    
+
     # Return 2x3 matrix
     row1 = tf.stack([a11, a12, a13])
     row2 = tf.stack([a21, a22, a23])
-    
+
     return tf.stack([row1, row2], axis=0)
 

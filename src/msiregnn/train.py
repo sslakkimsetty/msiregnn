@@ -1,8 +1,9 @@
 """Trains a coregistration model and evaluates transformation parameters."""
 
 import tensorflow as tf
-from .utils import imshow
+
 from .metrics import mi, rmse
+from .utils import imshow
 
 __all__ = [
     "train_model"
@@ -80,50 +81,50 @@ def train_model(
     patience_counter = 0
     plateau_counter = 0
     plateau_best_loss = float('inf')
-    
+
     while True:
         with tf.GradientTape() as tape:
             loss_value, grads = grad(model, loss_type=loss_type)
             model.loss_list.append(loss_value.numpy())
-            
+
             # Plateau detection for fixed LR optimizers
             if loss_value < plateau_best_loss:
                 plateau_best_loss = loss_value
                 plateau_counter = 0
             else:
                 plateau_counter += 1
-                
+
             # Reduce LR on plateau (only works for fixed LR)
-            if (plateau_counter >= lr_reduction_patience and 
+            if (plateau_counter >= lr_reduction_patience and
                 isinstance(optim.learning_rate, (int, float))):
                 current_lr = float(optim.learning_rate)
                 new_lr = current_lr * lr_reduction_factor
                 optim.learning_rate.assign(new_lr)
                 plateau_counter = 0
                 print(f"Plateau detected. Reducing LR from {current_lr:.6f} to {new_lr:.6f}")
-            
+
             optim.apply_gradients(zip(grads, model.trainable_variables))
-            
+
             # Early stopping
             if loss_value < best_loss:
                 best_loss = loss_value
                 patience_counter = 0
             else:
                 patience_counter += 1
-                
+
             if patience_counter >= patience:
                 print(f"Early stopping at iteration {it}")
                 break
 
         it += 1
         if it % 25 == 0:
-            current_lr = (optim.learning_rate.numpy() if hasattr(optim.learning_rate, 'numpy') 
+            current_lr = (optim.learning_rate.numpy() if hasattr(optim.learning_rate, 'numpy')
                          else optim.learning_rate)
             print(f"ITER: {it}, LOSS: {loss_value.numpy()}, LR: {current_lr}")
             imshow(model.moving_hat)
         if it >= ITERMAX:
             break
-            
+
     return model
 
 
@@ -192,11 +193,11 @@ def grad(
 
     # Compute gradients
     gradients = tape.gradient(total_loss, model.trainable_variables)
-    
+
     # Apply gradient clipping if enabled
     if clip_gradients:
         gradients, _ = tf.clip_by_global_norm(gradients, max_grad_norm)
-        
+
     return total_loss, gradients
 
 
@@ -220,7 +221,7 @@ def _loss(
         return loss_object(model.fixed, model.moving_hat)
 
 
-def regularization_loss(model): # noqa
+def regularization_loss(model):
     """
     Compute the regularization loss for the model.
 
