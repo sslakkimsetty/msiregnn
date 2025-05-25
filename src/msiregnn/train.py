@@ -129,21 +129,47 @@ def train_model(
 
 
 def grad(
-        model,
+        model: tf.keras.models.Model,
         loss_type: str = "mi",
         clip_gradients: bool = True,
         max_grad_norm: float = 1.0,
-) -> tf.Tensor:
-    """
-    Compute gradients for backprop in AffineRegistration
-
-    :param model: The model to compute gradients for
-    :param loss_type: Loss type as str
-    :param clip_gradients: Whether to clip gradients to prevent exploding gradients
-    :param max_grad_norm: Maximum norm for gradient clipping when clip_gradients is True
-
-    :return: A tuple of (total_loss, gradients) where gradients are computed (and optionally clipped)
-             tf.Tensors to be used with an optimizer.
+) -> tuple[tf.Tensor, list[tf.Tensor]]:
+    """Compute loss and gradients for backpropagation in registration models.
+    
+    This function computes the total loss (including optional regularization) and its
+    gradients with respect to the model's trainable variables. It supports adaptive
+    regularization weight adjustment and gradient clipping to prevent training instability.
+    
+    Args:
+        model: The registration model to compute gradients for. Must have:
+            - call(): Method to perform forward pass
+            - trainable_variables: List of variables to compute gradients for
+            - regularize: Boolean flag indicating if regularization is enabled
+            - reg_weight: Float weight for regularization term (if regularize=True)
+        loss_type: Type of loss function to use. Options:
+            - "mi": Mutual Information (negative MI is minimized)
+            - "mse": Mean Squared Error (RMSE)
+        clip_gradients: Whether to apply gradient clipping to prevent exploding
+            gradients. Recommended for stable training.
+        max_grad_norm: Maximum global norm for gradient clipping when clip_gradients
+            is True. Gradients are scaled down if their global norm exceeds this value.
+    
+    Returns:
+        A tuple containing:
+            - total_loss: The computed loss value (model loss + regularization) as tf.Tensor
+            - gradients: List of gradient tensors corresponding to model.trainable_variables,
+              optionally clipped if clip_gradients=True
+    
+    Notes:
+        - The function automatically adjusts regularization weight if it becomes too
+          dominant (more than 50% of the model loss)
+        - Gradient clipping uses global norm clipping across all gradients
+        - The model's call() method is executed within the gradient tape context
+    
+    Example:
+        >>> model = AffineRegistration(fixed=fixed_img, moving=moving_img)
+        >>> loss, grads = grad(model, loss_type="mi", clip_gradients=True)
+        >>> optimizer.apply_gradients(zip(grads, model.trainable_variables))
     """
     # Initialize maximum regularization loss to model loss
     max_reg_ratio = 0.5
@@ -172,6 +198,7 @@ def grad(
         gradients, _ = tf.clip_by_global_norm(gradients, max_grad_norm)
         
     return total_loss, gradients
+
 
 
 def _loss(
