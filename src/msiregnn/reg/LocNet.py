@@ -1,7 +1,7 @@
 """Provides automated LocNet layers for *Registration model."""
 
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, LeakyReLU
+from tensorflow.keras.layers import Conv2D, LeakyReLU, MaxPooling2D
 
 __all__ = [
     "LocNet"
@@ -33,7 +33,7 @@ class LocNet(tf.keras.layers.Layer):
             self,
             input_shape = (1, 200, 200, 1),
             initial_filters=32,
-            min_output_size=10): # noqa
+            min_output_size=10):
 
         super(LocNet, self).__init__()
         self.layers_list = []

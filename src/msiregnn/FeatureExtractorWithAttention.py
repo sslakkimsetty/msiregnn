@@ -1,4 +1,4 @@
-""" Provides class definitions for FeatureExtractor layers for *Registration model."""
+"""Provides class definitions for FeatureExtractor layers for *Registration model."""
 
 import tensorflow as tf
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Resizing

@@ -1,6 +1,7 @@
 import pytest
 import tensorflow as tf
 
+
 @pytest.fixture
 def sample_image():
     """Provide a sample test image."""
