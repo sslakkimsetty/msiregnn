@@ -29,7 +29,8 @@ class AffineRegistration(tf.keras.models.Model):
             pretrain = False,
             theta_id = None,
             pretrain_epochs = 300,
-            pretrain_lr = 0.001,
+            pretrain_lr = 0.001, 
+            pretrain_strategy = "identity", 
             regularize=True,
             reg_weight=1e-3
     ):
@@ -42,7 +43,8 @@ class AffineRegistration(tf.keras.models.Model):
         self.pretrain = pretrain
         self.theta_id = theta_id
         self.pretrain_epochs = pretrain_epochs
-        self.pretrain_lr = pretrain_lr
+        self.pretrain_lr = pretrain_lr 
+        self.pretrain_strategy = pretrain_strategy 
 
         self.regularize = regularize
         self.reg_weight = reg_weight
@@ -177,7 +179,9 @@ class AffineRegistration(tf.keras.models.Model):
                 self,
                 theta_id = self.theta_id,
                 epochs = self.pretrain_epochs,
-                learning_rate = self.pretrain_lr)
+                learning_rate = self.pretrain_lr, 
+                strategy = self.pretrain_strategy
+            )
             
         self.loss_list = list()
         train_model(
