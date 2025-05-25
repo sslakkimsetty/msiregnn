@@ -10,25 +10,69 @@ __all__ = [
 
 
 def train_model(
-        model,
+        model: tf.keras.models.Model,
         loss_type: str = "mi",
-        optim: tf.keras.optimizers = tf.keras.optimizers.Adagrad(learning_rate=1e-3),
+        optim: tf.keras.optimizers.Optimizer = tf.keras.optimizers.Adagrad(learning_rate=1e-3),
         ITERMAX: int = 1000,
         patience: int = 100,
         lr_reduction_patience: int = 50,  # For plateau detection
         lr_reduction_factor: float = 0.5   # For plateau reduction
-):
+) -> tf.keras.models.Model:
     """
-    Train the AffineRegistration model.
+    Train a registration model using gradient descent with early stopping and learning rate reduction.
+    
+    This function implements a training loop with early stopping based on loss improvement
+    and optional learning rate reduction on plateau. It supports both mutual information (MI)
+    and mean squared error (MSE) loss functions.
     
     Args:
-        model: Model to train
-        loss_type: Loss function type ("mi" or "mse")
-        optim: Keras optimizer (should include LR schedule if desired)
-        ITERMAX: Maximum iterations
-        patience: Early stopping patience
-        lr_reduction_patience: Iterations before reducing LR on plateau
-        lr_reduction_factor: Factor to reduce LR by on plateau
+        model: The registration model to train. Must have attributes:
+            - fixed: The fixed/reference image tensor
+            - moving_hat: The transformed moving image (computed by model.call())
+            - loss_list: List to store loss values during training
+            - trainable_variables: Model parameters to optimize
+        loss_type: Type of loss function to use. Options:
+            - "mi": Mutual Information (negative MI is minimized)
+            - "mse": Mean Squared Error (RMSE)
+        optim: TensorFlow/Keras optimizer instance. Should include learning rate
+            schedule if adaptive learning rate is desired. Default is Adagrad
+            with learning rate of 1e-3.
+        ITERMAX: Maximum number of training iterations. Training stops when this
+            limit is reached even if convergence criteria are not met.
+        patience: Number of iterations to wait for loss improvement before early
+            stopping. If loss doesn't improve for this many iterations, training stops.
+        lr_reduction_patience: Number of iterations without improvement before
+            reducing learning rate. Only applies to optimizers with fixed learning
+            rates (not schedules).
+        lr_reduction_factor: Factor by which to reduce learning rate on plateau.
+            New LR = old LR * lr_reduction_factor. Only applies to fixed LR optimizers.
+    
+    Returns:
+        The trained model with updated parameters and populated loss_list attribute.
+    
+    Side Effects:
+        - Updates model parameters in-place
+        - Populates model.loss_list with loss values from each iteration
+        - Prints progress every 25 iterations showing iteration number, loss, and current LR
+        - Displays the transformed image (model.moving_hat) every 25 iterations
+        - Prints early stopping message if patience is exceeded
+        - Prints learning rate reduction messages when plateau is detected
+    
+    Note:
+        The function uses gradient clipping and regularization if enabled in the model.
+        Plateau detection only works with optimizers that have a fixed learning rate
+        (not those using learning rate schedules).
+    
+    Example:
+        >>> model = AffineRegistration(fixed=fixed_img, moving=moving_img)
+        >>> optimizer = tf.keras.optimizers.Adam(learning_rate=0.01)
+        >>> trained_model = train_model(
+        ...     model, 
+        ...     loss_type="mi",
+        ...     optim=optimizer,
+        ...     ITERMAX=500,
+        ...     patience=50
+        ... )
     """
     it = 0
     model.loss_list = list()
@@ -81,6 +125,7 @@ def train_model(
             break
             
     return model
+
 
 
 def grad(
