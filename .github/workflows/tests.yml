@@ -1,0 +1,38 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, devel ]
+  pull_request:
+
+jobs:
+  test-and-docs:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install core dependencies
+        run: |
+          python -m pip install tensorflow
+          python -m pip install pytest-cov pytest-timeout
+          python -m pip install -e ".[docs,tests]"
+
+      - name: Run unit tests
+        run: pytest -q
+
+      - name: Build documentation (Sphinx)
+        run: |
+          python -m sphinx -b html -d docs/build/doctrees docs/source docs/build/html
