@@ -942,3 +942,6 @@ auxiliaries/
 
 # Local AI/dev guidance (do not track)
 CLAUDE.md
+
+# Local product planning (do not track)
+plans/
