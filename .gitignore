@@ -939,3 +939,6 @@ testing/
 
 # Auxiliary files and data
 auxiliaries/
+
+# Local AI/dev guidance (do not track)
+CLAUDE.md
