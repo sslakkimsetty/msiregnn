@@ -1,5 +1,6 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, BatchNormalization, Activation
+from tensorflow.keras.layers import Activation, BatchNormalization, Conv2D
+
 
 class SpatialAttentionMap(tf.keras.layers.Layer):
     def __init__(self):

@@ -2,11 +2,12 @@
 
 import numpy as np
 import tensorflow as tf
-from .LocNet import LocNet
-from .TransformationExtractor import TransformationExtractor
+
+from ..pretrain import pretrain_model
 from ..stn.bspline.st_bspline import SpatialTransformerBspline
 from ..train import train_model
-from ..pretrain import pretrain_model
+from .LocNet import LocNet
+from .TransformationExtractor import TransformationExtractor
 
 __all__ = [
     "BsplineRegistration"
@@ -15,8 +16,8 @@ __all__ = [
 
 class BsplineRegistration(tf.keras.models.Model):
     """Class definition for BsplineRegistration model.
-        :param fixed: reference image.
-        :param moving: target image to be transformed.
+    :param fixed: reference image.
+    :param moving: target image to be transformed.
     """
 
     def __init__(

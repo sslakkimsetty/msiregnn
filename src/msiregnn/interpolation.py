@@ -1,20 +1,12 @@
 """Testing grounds for interpolation methods."""
 
-import matplotlib.pyplot as plt
-import numpy as np
-import tensorflow as tf
-
-import msiregnn as msn
-from tensorflow.keras.layers import (
-    Conv2D,
-    Dense,
-    Flatten,
-    MaxPooling2D,
-)
-
-from PIL import Image
 import os
 
+import numpy as np
+import tensorflow as tf
+from PIL import Image
+
+import msiregnn as msn
 
 img_res = (200, 180)
 fixed = Image.open(os.path.join("/Users/lakkimsetty.s/Documents/",

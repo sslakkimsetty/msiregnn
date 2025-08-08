@@ -3,15 +3,16 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
+
 from . import SpatialTransformerBspline
 
 __all__ = [
     "checker_board",
     "grid",
-    "simulate_theta_bspline",
     "imshow",
+    "locnet_output_shape",
     "plot_vector_field",
-    "locnet_output_shape"
+    "simulate_theta_bspline"
 ]
 
 def checker_board(
@@ -287,29 +288,54 @@ def nans_to_zeros(tensor):
     return tf.where(tf.math.is_nan(tensor), tf.zeros_like(tensor), tensor)
 
 
-def affine_matrix_from_params(scale=1.0, angle=0, center=(0, 0)):
-    scale = tf.constant(scale, dtype=tf.float32)
+def affine_matrix_from_params(
+    scale_x: float = 1.0,
+    scale_y: float = 1.0,
+    angle: float = 0,
+    trans_x: float = 0,
+    trans_y: float = 0,
+    center: tuple[float, float] = (0.5, 0.5)
+) -> tf.Tensor:
+    """
+    Create affine transformation matrix from parameters with non-uniform scaling.
+    No shearing is allowed - rotation is applied uniformly.
+    
+    Args:
+        scale_x: Scale factor in x direction
+        scale_y: Scale factor in y direction
+        angle: Rotation angle in degrees
+        trans_x: Translation in x (normalized coordinates)
+        trans_y: Translation in y (normalized coordinates)
+        center: Center of rotation/scaling (normalized coordinates)
+    
+    Returns:
+        tf.Tensor: 2x3 affine transformation matrix
+    """
+    # Convert to tensors
+    scale_x = tf.constant(scale_x, dtype=tf.float32)
+    scale_y = tf.constant(scale_y, dtype=tf.float32)
     theta = tf.experimental.numpy.deg2rad(tf.constant(angle, dtype=tf.float32))
-    cx, cy = center
+    trans_x = tf.constant(trans_x, dtype=tf.float32)
+    trans_y = tf.constant(trans_y, dtype=tf.float32)
+    cx, cy = tf.constant(center[0], dtype=tf.float32), tf.constant(center[1], dtype=tf.float32)
 
-    translate_POT = tf.constant([
-        [1, 0, -cx],
-        [0, 1, -cy],
-        [0, 0, 1]], dtype=tf.float32)
+    # Compute rotation components
+    cos_theta = tf.math.cos(theta)
+    sin_theta = tf.math.sin(theta)
 
-    a = scale * tf.math.cos(theta)
-    b = scale * tf.math.sin(theta)
+    # Build transformation matrix (scale + rotation, no shear)
+    a11 = scale_x * cos_theta
+    a12 = -scale_y * sin_theta
+    a21 = scale_x * sin_theta
+    a22 = scale_y * cos_theta
 
-    sr_matrix = tf.stack([
-        [a, -b, 0],
-        [b, a, 0],
-        [0, 0, 1]], axis=0)
+    # Translation includes centering for rotation/scaling
+    a13 = (1 - a11) * cx - a12 * cy + trans_x
+    a23 = -a21 * cx + (1 - a22) * cy + trans_y
 
-    translate_POT_back = tf.constant([
-        [1, 0, cx],
-        [0, 1, cy],
-        [0, 0, 1]], dtype=tf.float32)
+    # Return 2x3 matrix
+    row1 = tf.stack([a11, a12, a13])
+    row2 = tf.stack([a21, a22, a23])
 
-    M = tf.linalg.matmul(translate_POT_back, tf.linalg.matmul(sr_matrix, translate_POT))
-    return M[:2, :]
+    return tf.stack([row1, row2], axis=0)
 

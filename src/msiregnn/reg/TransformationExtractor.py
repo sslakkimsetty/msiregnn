@@ -1,11 +1,13 @@
 """Provides automated TransformationExtractor layers for *Registration model."""
 
+import functools
+
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.layers import Flatten, Dense
-from .LocNet import LocNet
+from tensorflow.keras.layers import Dense, Flatten
+
 from ..utils import locnet_output_shape
-import functools
+from .LocNet import LocNet
 
 __all__ = [
     "TransformationExtractor"
@@ -33,6 +35,7 @@ class TransformationExtractor(tf.keras.layers.Layer):
         print(output)
         ```
     """
+
     def __init__(
             self,
             units = 100,
@@ -50,7 +53,35 @@ class TransformationExtractor(tf.keras.layers.Layer):
 
         self.layers_list.append(Flatten())
         [self.layers_list.append(Dense(units=x)) for x in layers_units[::-1]]
-        self.layers_list.append(Dense(units=layers_units[-1]*factor, bias_initializer="zeros"))
+
+        def parameter_aware_initializer(shape, dtype=tf.float32):
+            """Initialize with different scales for different parameters."""
+            # Base initialization
+            weights = tf.random.normal(shape, mean=0.0, stddev=0.1, dtype=dtype)
+
+            # Only apply parameter-specific scaling if output is 5 (affine params)
+            if shape[1] == 5:
+                # [scale_x, scale_y, rotation, trans_x, trans_y]
+                param_scales = tf.constant([
+                    [1.0],
+                    [1.0],
+                    [2.0],    # rotation - more variance for better exploration
+                    [0.5],    # trans_x - less variance
+                    [0.5]     # trans_y - less variance
+                ], dtype=dtype)
+
+                # Broadcast across all input features
+                param_scales = tf.transpose(param_scales)
+                weights = weights * param_scales
+            return weights
+
+        self.layers_list.append(
+            Dense(
+                units=layers_units[-1]*factor,
+                kernel_initializer=parameter_aware_initializer,
+                bias_initializer="zeros"
+            )
+        )
 
     def units_calc(self, locnet_size, locnet_layers_num, out_units, factor):
         N = locnet_size / out_units

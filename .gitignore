@@ -936,3 +936,12 @@ FodyWeavers.xsd
 
 # Personal testing directory
 testing/
+
+# Auxiliary files and data
+auxiliaries/
+
+# Local AI/dev guidance (do not track)
+CLAUDE.md
+
+# Local product planning (do not track)
+plans/

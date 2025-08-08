@@ -68,7 +68,6 @@ extensions = [
 ]
 
 
-extensions.append("sphinx_click.ext")
 
 
 # generate autosummary pages
