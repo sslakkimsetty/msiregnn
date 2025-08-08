@@ -21,14 +21,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Upgrade pip
-        run: python -m pip install --upgrade pip
+      - name: Install uv
+        run: pipx install uv
 
-      - name: Install core dependencies
+      - name: Install core dependencies (uv)
         run: |
-          python -m pip install tensorflow
-          python -m pip install pytest-cov pytest-timeout
-          python -m pip install -e ".[docs,tests]"
+          uv pip install --system tensorflow
+          uv pip install --system pytest-cov pytest-timeout
+          uv pip install --system -e ".[docs,tests]"
 
       - name: Run unit tests
         run: pytest -q
