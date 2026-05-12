@@ -1,5 +1,9 @@
+import matplotlib
 import pytest
 import tensorflow as tf
+
+# Use a non-interactive backend for headless CI/testing
+matplotlib.use("Agg")
 
 
 @pytest.fixture
